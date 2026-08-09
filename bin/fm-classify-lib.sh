@@ -163,9 +163,14 @@ status_is_paused_or_captain_held() {  # <status-line>
 # format): an OPTIONAL "[key=<slug>]" token sits between the verb and the colon,
 #   needs-decision [key=api-shape]: <summary>
 #   resolved       [key=api-shape]: <how it was decided>
-# A line with no token uses the key "default", preserving the historical
+# Crews in the wild also write the token as the FIRST token of the body,
+#   needs-decision: [key=api-shape] <summary>
+# and both spellings name the SAME key, so an open in one spelling closes
+# against a resolution in the other; the note excludes the token either way.
+# A "[key=...]" anywhere later in the body is prose, never a key. A line with
+# no token in either position uses the key "default", preserving the historical
 # one-open-decision-per-task behavior (a bare "resolved:" closes "default").
-# The three parsers are pure reads of a single line; the verb parser strips any
+# The parsers are pure reads of a single line; the verb parser strips any
 # key token before the colon so the leading word is recovered cleanly.
 status_line_verb() {  # <status-line> -> leading verb word
   local v=${1%%:*}
@@ -180,6 +185,22 @@ status_line_note() {  # <status-line> -> text after the first colon, trimmed
     *) printf '%s' "$1" ;;
   esac
 }
+# Body-position key parser: succeeds only when the body's FIRST token is a
+# well-formed "[key=<slug>]" (closing bracket present, valid slug charset, and
+# nothing but whitespace or end-of-line after the bracket). A malformed leading
+# token fails here and the line folds under "default" - exactly how such lines
+# have always folded - unlike the between-verb-and-colon form, whose malformed
+# token rejects the whole line (preserved below, unchanged).
+_fm_decision_body_key() {  # <body-text> -> key slug, or fail when the body does not lead with one
+  local body=$1 k after
+  case "$body" in \[key=*) ;; *) return 1 ;; esac
+  k=${body#\[key=}
+  k=${k%%\]*}
+  case "$k" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac
+  after=${body#"[key=$k]"}
+  [ "$after" != "$body" ] || return 1
+  case "$after" in ''|[[:space:]]*) printf '%s' "$k" ;; *) return 1 ;; esac
+}
 _fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
   local prefix=${1%%:*} k
   case "$prefix" in
@@ -191,8 +212,30 @@ _fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
         *) printf '%s' "$k" ;;
       esac
       ;;
-    *) printf 'default' ;;
+    *)
+      case "$1" in
+        *:*) k=$(_fm_decision_body_key "$(status_line_note "$1")") || k=default ;;
+        *) k=default ;;
+      esac
+      printf '%s' "$k"
+      ;;
   esac
+}
+# Decision-note parser: the note as the folds record it, i.e. the after-colon
+# text minus a leading body-position key token. For a canonical keyed line or
+# a token-free line this is exactly status_line_note; keeping that public
+# parser untouched preserves every non-decision consumer of raw note text.
+_fm_decision_note() {  # <status-line> -> note text, minus a leading body key token
+  local note k
+  note=$(status_line_note "$1")
+  case "${1%%:*}" in
+    *\[key=*\]*) printf '%s' "$note"; return 0 ;;
+  esac
+  if k=$(_fm_decision_body_key "$note"); then
+    note=${note#"[key=$k]"}
+    note=${note#"${note%%[![:space:]]*}"}
+  fi
+  printf '%s' "$note"
 }
 # Drop the record for <key> from a newline-terminated "<key>\t<verb>\t<note>" set.
 # Portable (no associative arrays) so the fold runs on bash 3.2 as well as 4+.
@@ -258,11 +301,11 @@ _fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb
   [ -n "$stripped" ] || { printf '%s' "$open"; return 0; }
   verb=$(status_line_verb "$line")
   key=$(_fm_decision_key "$line") || { printf '%s' "$open"; return 0; }
-  _fm_decision_key_transition_allowed "$key" "$(status_line_note "$line")" \
+  note=$(_fm_decision_note "$line")
+  _fm_decision_key_transition_allowed "$key" "$note" \
     || { printf '%s' "$open"; return 0; }
   case "$verb" in
     needs-decision|blocked)
-      note=$(status_line_note "$line")
       open=$(_fm_decision_drop "$open" "$key")
       [ -n "$open" ] && open="${open}"$'\n'
       open="${open}${key}"$'\t'"${verb}"$'\t'"${note}"$'\n'
@@ -384,7 +427,10 @@ _fm_open_decisions_cursor_path() {  # <status-file>
   printf '%s/.%s.open-decisions-cursor' "$dir" "${base%.status}"
 }
 
-FM_OPEN_DECISIONS_FOLD_VERSION=2
+# Version 3: body-position "[key=<slug>]" tokens (first token after the colon)
+# now key the line, so persisted version-2 open-sets folded under the
+# prefix-only interpretation are discarded and rebuilt from byte 0.
+FM_OPEN_DECISIONS_FOLD_VERSION=3
 
 # Portable device:inode identity for the rotation/recreation check below.
 _fm_open_decisions_file_ident() {  # <file> -> "dev:inode", empty on I/O failure
@@ -543,7 +589,7 @@ _fm_status_open_activities_stream() {
     key=$(_fm_decision_key "$line") || continue
     case "$verb" in
       working|"$pause")
-        note=$(status_line_note "$line")
+        note=$(_fm_decision_note "$line")
         open=$(_fm_decision_drop "$open" "$key")
         [ -n "$open" ] && open="${open}"$'\n'
         open="${open}${key}"$'\t'"${verb}"$'\t'"${note}"$'\n'

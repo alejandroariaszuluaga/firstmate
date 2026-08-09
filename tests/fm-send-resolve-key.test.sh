@@ -132,6 +132,32 @@ test_answer_send_closes_open_decision() {
   pass "fm-send --resolve-key: the answer send itself closes the open decision"
 }
 
+# Crews in the wild open decisions with the key as the body's first token
+# ("needs-decision: [key=x] summary") rather than the canonical
+# between-verb-and-colon spelling. --resolve-key must bind against such an
+# open record identically: same refuse-before-send safety, same canonical
+# closing line, same drained result.
+test_body_position_keyed_open_binds() {
+  local dir fb log home rc out
+  dir="$TMP_ROOT/body-key"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home body-key)
+  fm_write_meta "$home/state/t8.meta" "window=sess:fm-t8" "kind=ship"
+  printf 'needs-decision: [key=api-shape] pick REST or RPC\n' > "$home/state/t8.status"
+
+  run_send "$fb" "$home" "$log" t8 --resolve-key api-shape "go with REST"; rc=$?
+  expect_code 0 "$rc" "an answer should bind against a body-position keyed open record"
+  assert_contains "$(cat "$log")" "go with REST" "the answer text should reach the worker"
+  grep -F 'resolved [key=api-shape]: answered: go with REST' "$home/state/t8.status" >/dev/null \
+    || fail "fm-send did not append the canonical closing line:"$'\n'"$(cat "$home/state/t8.status")"
+
+  out=$(drain_out "$home")
+  if printf '%s' "$out" | grep -F 'OPEN DECISIONS' >/dev/null; then
+    fail "the body-position keyed decision still lists as open after the answer: $out"
+  fi
+  pass "fm-send --resolve-key: binds and closes a body-position keyed open record"
+}
+
 test_answer_starts_work_never_orphans() {
   local dir fb log home rc out
   dir="$TMP_ROOT/starts-work"; mkdir -p "$dir"
@@ -396,6 +422,7 @@ test_flag_misuse_refuses() {
 }
 
 test_answer_send_closes_open_decision
+test_body_position_keyed_open_binds
 test_answer_starts_work_never_orphans
 test_routine_steer_never_closes
 test_not_open_key_refuses_before_send

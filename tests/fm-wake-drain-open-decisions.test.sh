@@ -215,9 +215,100 @@ test_over_long_decision_note_is_capped_with_a_marker() {
   pass "an over-long open decision is cut to its per-item budget with the shared truncation marker"
 }
 
+# Crews in the wild write the key token as the FIRST token of the body
+# ("needs-decision: [key=x] summary") rather than the canonical
+# between-verb-and-colon position. Both spellings must name the SAME key, or
+# such decisions fold keyless and a later canonical "resolved [key=x]:" (the
+# spelling fm-send's --resolve-key writes) leaves a phantom open entry.
+test_body_position_key_closes_against_canonical_resolved() {
+  local dir state out
+  dir=$(make_case body-key-canonical-close)
+  state="$dir/state"
+  out="$dir/drain.out"
+  printf 'needs-decision: [key=api-shape] pick REST or RPC\n' > "$state/taskA.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed on a body-position keyed open"
+  grep -F 'taskA [key=api-shape] needs-decision: pick REST or RPC' "$out" >/dev/null \
+    || fail "a body-position keyed needs-decision did not fold as keyed with its token-free note: $(cat "$out")"
+
+  printf 'resolved [key=api-shape]: went with REST\n' >> "$state/taskA.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed after the canonical resolution"
+  if grep -F 'OPEN DECISIONS' "$out" >/dev/null; then
+    fail "a canonical keyed resolved did not close the body-position keyed open: $(cat "$out")"
+  fi
+  pass "a body-position keyed open closes against a canonical keyed resolved"
+}
+
+test_body_position_resolved_closes_either_spelling() {
+  local dir state out
+  dir=$(make_case body-key-body-close)
+  state="$dir/state"
+  out="$dir/drain.out"
+  # taskB opens and closes entirely in the body-position spelling; taskC opens
+  # canonically and closes in the body-position spelling (the reverse interop).
+  printf 'blocked: [key=creds] need the deploy token\n' > "$state/taskB.status"
+  printf 'resolved: [key=creds] token landed in the vault\n' >> "$state/taskB.status"
+  printf 'needs-decision [key=rollout]: big-bang or phased\n' > "$state/taskC.status"
+  printf 'resolved: [key=rollout] phased\n' >> "$state/taskC.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed on body-position resolutions"
+  if grep -F 'OPEN DECISIONS' "$out" >/dev/null; then
+    fail "a body-position keyed resolved left an open entry in either spelling: $(cat "$out")"
+  fi
+  pass "a body-position keyed resolved closes body-position and canonical opens alike"
+}
+
+test_canonical_spelling_folds_unchanged_next_to_body_spelling() {
+  local dir state out
+  dir=$(make_case canonical-unchanged)
+  state="$dir/state"
+  out="$dir/drain.out"
+  # The canonical pair must behave exactly as before the body-position parser
+  # existed, including when both spellings share one log: the canonical
+  # api-shape pair closes, the body-position migration open stays open.
+  printf 'needs-decision [key=api-shape]: pick REST or RPC\n' > "$state/taskD.status"
+  printf 'needs-decision: [key=migration] pick the rollout plan\n' >> "$state/taskD.status"
+  printf 'resolved [key=api-shape]: went with REST\n' >> "$state/taskD.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed on a mixed-spelling log"
+  grep -F 'taskD [key=migration] needs-decision: pick the rollout plan' "$out" >/dev/null \
+    || fail "the still-open body-position decision vanished from a mixed-spelling log: $(cat "$out")"
+  if grep -F '[key=api-shape]' "$out" >/dev/null; then
+    fail "the canonically resolved decision stayed open next to a body-position line: $(cat "$out")"
+  fi
+  pass "canonical keyed lines fold unchanged alongside body-position keyed lines"
+}
+
+test_key_token_not_at_body_start_is_prose() {
+  local dir state out
+  dir=$(make_case body-key-prose)
+  state="$dir/state"
+  out="$dir/drain.out"
+  # A [key=...] mentioned mid-body is prose: the line folds under "default",
+  # a keyed resolved for the mentioned slug must NOT close it, and a bare
+  # keyless resolved (the historical default-key close) must.
+  printf 'blocked: waiting on the [key=infra] approval\n' > "$state/taskE.status"
+  printf 'resolved [key=infra]: not a close for that blocker\n' >> "$state/taskE.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed on a mid-body key mention"
+  grep -F 'taskE blocked: waiting on the [key=infra] approval' "$out" >/dev/null \
+    || fail "a mid-body [key=...] mention was treated as a key: $(cat "$out")"
+
+  printf 'resolved: approval came through\n' >> "$state/taskE.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain failed after the keyless resolution"
+  if grep -F 'OPEN DECISIONS' "$out" >/dev/null; then
+    fail "a keyless resolved did not close the default-keyed blocker: $(cat "$out")"
+  fi
+  pass "a [key=...] token not at the start of the body is prose, never a key"
+}
+
 test_buried_decision_still_surfaces
 test_over_long_decision_note_is_capped_with_a_marker
 test_explicit_resolution_closes_it
+test_body_position_key_closes_against_canonical_resolved
+test_body_position_resolved_closes_either_spelling
+test_canonical_spelling_folds_unchanged_next_to_body_spelling
+test_key_token_not_at_body_start_is_prose
 test_later_unrelated_terminal_line_does_not_close_it
 test_reserved_key_namespace_is_owned_by_its_library
 test_no_open_decisions_prints_nothing
