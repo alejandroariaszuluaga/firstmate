@@ -354,6 +354,45 @@ test_no_mistakes_dod_wording() {
   pass "fm-brief.sh: no-mistakes DOD keeps its apostrophe prose, now parse-safe"
 }
 
+# The captain's standing validation ladder is baked into the no-mistakes DOD as
+# fixed scaffold text (post-mortem P4), so briefs can no longer hand-paraphrase
+# or drop words from it. It is no-mistakes-mode policy: scout, direct-PR, and
+# local-only scaffolds must not carry it.
+test_no_mistakes_dod_validation_ladder() {
+  local home id brief
+  home="$TMP_ROOT/ladder-home"
+  mkdir -p "$home/data"
+  id="brief-ladder-e1"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
+  brief="$home/data/$id/brief.md"
+  assert_present "$brief" "brief was not scaffolded"
+  assert_grep "## Validation ladder (captain standing policy — part of definition of done)" "$brief" \
+    "no-mistakes DOD lost the validation ladder heading"
+  assert_grep "exact fail-closed validation entrypoint (the full script, not a subset)" "$brief" \
+    "validation ladder lost the full-entrypoint bullet"
+  assert_grep "asserting the final URL stays on the app's public origin and renders the intended page" "$brief" \
+    "validation ladder lost the real-browser journey origin assertion"
+  assert_grep "Stand the app up as deployed (production build + deployment bind, seeded fixtures), not the dev server." "$brief" \
+    "validation ladder lost the as-deployed stand-up requirement"
+  assert_grep "voids that surface's evidence until re-run" "$brief" \
+    "validation ladder lost per-head evidence freshness"
+  assert_grep "Local e2e uses fixture/seeded paths only — no paid AI keys." "$brief" \
+    "validation ladder lost the no-paid-keys bullet"
+  assert_grep "never claim GitHub-green when only the local substitute ran" "$brief" \
+    "validation ladder lost the CI-substitute honesty bullet"
+
+  for id_args in "brief-ladder-e2:some-proj --mode direct-PR" "brief-ladder-e3:some-proj --mode local-only" "brief-ladder-e4:some-proj --scout"; do
+    id=${id_args%%:*}
+    # shellcheck disable=SC2086  # args is an intentional word-split arg list
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" ${id_args##*:} >/dev/null 2>&1
+    brief="$home/data/$id/brief.md"
+    assert_present "$brief" "$id: brief was not scaffolded"
+    assert_no_grep "## Validation ladder" "$brief" \
+      "$id: ladder is no-mistakes-mode policy and must not appear in this scaffold"
+  done
+  pass "fm-brief.sh: validation ladder is fixed no-mistakes DOD text and absent elsewhere"
+}
+
 test_ship_project_memory_wording() {
   local home id brief
   home="$TMP_ROOT/project-memory-home"
@@ -719,6 +758,7 @@ test_ship_mode_is_explicit_not_registry
 test_delivery_flags_are_refused_where_they_do_not_apply
 test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
+test_no_mistakes_dod_validation_ladder
 test_ship_project_memory_wording
 test_herdr_lab_contract_is_explicit_and_complete
 test_herdr_lab_contract_quotes_foreign_firstmate_path

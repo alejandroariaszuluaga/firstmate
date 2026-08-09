@@ -36,6 +36,9 @@
 #                the configured merge authority approves, firstmate merges to local main
 # no-mistakes-prod-only is a registry policy, not a task mode; resolve it to one of
 # the three concrete modes at intake before calling this script.
+# The no-mistakes DOD carries the captain's standing validation ladder as fixed
+# scaffold text; briefs add task-specific scenarios on top but never restate or
+# trim the ladder itself. Scout and direct-PR scaffolds do not carry it.
 # The generated ship brief records the chosen mode as a fixed machine-readable
 # "Delivery contract: mode=<mode>" line. bin/fm-spawn.sh reads that line and refuses
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the
@@ -384,6 +387,14 @@ EOF
     IFS= read -r -d '' DOD <<EOF || true
 # Definition of done
 Delivery contract: mode=no-mistakes
+
+## Validation ladder (captain standing policy — part of definition of done)
+- The no-mistakes test round must execute the repo's exact fail-closed validation entrypoint (the full script, not a subset). Non-zero from that script is red, always.
+- PR-scoped agent-driven checks against a stood-up local app are mandatory for the surfaces this diff actually touches (happy path + obvious regressions). Any surface a browser can reach (page, form, redirect target, emailed link) must be exercised by a real browser through the full post-action journey, asserting the final URL stays on the app's public origin and renders the intended page; API-only evidence suffices only for surfaces no browser reaches. Stand the app up as deployed (production build + deployment bind, seeded fixtures), not the dev server.
+- Keep the evidence — commands, output, and the commit each check ran at — in the run log or PR description. A later commit that touches a checked surface (pipeline fix rounds included) voids that surface's evidence until re-run; the last run before the PR is merge-ready must hold current evidence for every touched surface.
+- Local e2e uses fixture/seeded paths only — no paid AI keys.
+- If GitHub Actions schedules no checks or is flaky, run the exact CI unit entrypoint locally and record the exit code in your evidence; never claim GitHub-green when only the local substitute ran.
+
 The task is complete only when committed on your branch.
 When you believe it is complete, append \`done: {summary}\` to the status file and stop.
 Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.
