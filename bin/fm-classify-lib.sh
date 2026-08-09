@@ -201,41 +201,52 @@ _fm_decision_body_key() {  # <body-text> -> key slug, or fail when the body does
   [ "$after" != "$body" ] || return 1
   case "$after" in ''|[[:space:]]*) printf '%s' "$k" ;; *) return 1 ;; esac
 }
-_fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
-  local prefix=${1%%:*} k
+_fm_decision_parse_line() {
+  local line=$1 key_var=$2 note_var=$3 prefix=${1%%:*} body_note k parsed_key= parsed_note=
   case "$prefix" in
     *\[key=*\]*)
       k=${prefix#*\[key=}
       k=${k%%\]*}
       case "$k" in
         ''|*[!A-Za-z0-9._-]*) return 1 ;;
-        *) printf '%s' "$k" ;;
+        *) parsed_key=$k ;;
       esac
+      parsed_note=$(status_line_note "$line")
       ;;
     *)
+      parsed_key=default
+      parsed_note=$(status_line_note "$line")
       case "$1" in
-        *:*) k=$(_fm_decision_body_key "$(status_line_note "$1")") || k=default ;;
-        *) k=default ;;
+        *:*)
+          if k=$(_fm_decision_body_key "$parsed_note"); then
+            parsed_key=$k
+            body_note=${parsed_note#"[key=$k]"}
+            parsed_note=${body_note#"${body_note%%[![:space:]]*}"}
+          fi
+          ;;
       esac
-      printf '%s' "$k"
       ;;
   esac
+  printf -v "$key_var" '%s' "$parsed_key"
+  printf -v "$note_var" '%s' "$parsed_note"
+}
+_fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
+  local key note
+  _fm_decision_parse_line "$1" key note || return 1
+  printf '%s' "$key"
 }
 # Decision-note parser: the note as the folds record it, i.e. the after-colon
 # text minus a leading body-position key token. For a canonical keyed line or
 # a token-free line this is exactly status_line_note; keeping that public
 # parser untouched preserves every non-decision consumer of raw note text.
 _fm_decision_note() {  # <status-line> -> note text, minus a leading body key token
-  local note k
-  note=$(status_line_note "$1")
-  case "${1%%:*}" in
-    *\[key=*\]*) printf '%s' "$note"; return 0 ;;
-  esac
-  if k=$(_fm_decision_body_key "$note"); then
-    note=${note#"[key=$k]"}
-    note=${note#"${note%%[![:space:]]*}"}
+  local parsed_key parsed_note
+  if [ "$#" -eq 3 ]; then
+    _fm_decision_parse_line "$1" "$2" "$3"
+    return $?
   fi
-  printf '%s' "$note"
+  _fm_decision_parse_line "$1" parsed_key parsed_note || return 1
+  printf '%s' "$parsed_note"
 }
 # Drop the record for <key> from a newline-terminated "<key>\t<verb>\t<note>" set.
 # Portable (no associative arrays) so the fold runs on bash 3.2 as well as 4+.
@@ -300,8 +311,7 @@ _fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb
   stripped=${line//[[:space:]]/}
   [ -n "$stripped" ] || { printf '%s' "$open"; return 0; }
   verb=$(status_line_verb "$line")
-  key=$(_fm_decision_key "$line") || { printf '%s' "$open"; return 0; }
-  note=$(_fm_decision_note "$line")
+  _fm_decision_note "$line" key note || { printf '%s' "$open"; return 0; }
   _fm_decision_key_transition_allowed "$key" "$note" \
     || { printf '%s' "$open"; return 0; }
   case "$verb" in
@@ -586,10 +596,9 @@ _fm_status_open_activities_stream() {
     stripped=${line//[[:space:]]/}
     [ -n "$stripped" ] || continue
     verb=$(status_line_verb "$line")
-    key=$(_fm_decision_key "$line") || continue
+    _fm_decision_note "$line" key note || continue
     case "$verb" in
       working|"$pause")
-        note=$(_fm_decision_note "$line")
         open=$(_fm_decision_drop "$open" "$key")
         [ -n "$open" ] && open="${open}"$'\n'
         open="${open}${key}"$'\t'"${verb}"$'\t'"${note}"$'\n'
