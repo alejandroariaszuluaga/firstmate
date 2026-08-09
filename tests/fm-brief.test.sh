@@ -174,6 +174,8 @@ test_help_includes_entire_header() {
   local help
   help=$("$ROOT/bin/fm-brief.sh" --help)
   assert_contains "$help" "Refuses to overwrite an existing brief." "fm-brief.sh --help omitted its header terminator"
+  assert_contains "$help" "Scout, direct-PR, and local-only scaffolds do not carry it." \
+    "fm-brief.sh --help omitted the no-mistakes-only validation ladder note"
   pass "fm-brief.sh: --help renders the complete header"
 }
 

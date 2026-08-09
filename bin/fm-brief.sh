@@ -38,7 +38,7 @@
 # the three concrete modes at intake before calling this script.
 # The no-mistakes DOD carries the captain's standing validation ladder as fixed
 # scaffold text; briefs add task-specific scenarios on top but never restate or
-# trim the ladder itself. Scout and direct-PR scaffolds do not carry it.
+# trim the ladder itself. Scout, direct-PR, and local-only scaffolds do not carry it.
 # The generated ship brief records the chosen mode as a fixed machine-readable
 # "Delivery contract: mode=<mode>" line. bin/fm-spawn.sh reads that line and refuses
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the

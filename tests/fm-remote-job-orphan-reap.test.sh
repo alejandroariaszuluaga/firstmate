@@ -41,6 +41,30 @@ pgid_of() { ps -p "$1" -o pgid= 2>/dev/null | tr -d '[:space:]'; }
 
 ppid_of() { ps -p "$1" -o ppid= 2>/dev/null | tr -d '[:space:]'; }
 
+# Wait up to <seconds> for the asynchronous Linux start path to publish its
+# supervisor process, then echo that process id.
+wait_worker() { # <root> <seconds>
+  local root=$1 deadline=$(( $(date +%s) + $2 )) pid
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    pid=$(pgrep -f "^/bin/bash $root/bin/fm-remote-job-worker.sh\$" | head -n 1 || true)
+    case "$pid" in
+      ''|*[!0-9]*) sleep 0.1 ;;
+      *) printf '%s\n' "$pid"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# Wait up to <seconds> for a process to reach the requested parent.
+wait_for_ppid() { # <pid> <expected-ppid> <seconds>
+  local pid=$1 expected=$2 deadline=$(( $(date +%s) + $3 ))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    [ "$(ppid_of "$pid")" = "$expected" ] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 # Wait up to <seconds> for <pid> to exit; 0 when it did.
 wait_gone() { # <pid> <seconds>
   local pid=$1 deadline=$(( $(date +%s) + $2 ))
@@ -89,7 +113,7 @@ start_worker() {
     # shellcheck source=bin/fm-remote-job-lib.sh
     . "$ROOT/bin/fm-remote-job-lib.sh"
     fm_remote_job_start_linux_worker "$root" "$account_home" >&2 || exit 1
-    pgrep -f "^/bin/bash $root/bin/fm-remote-job-worker.sh\$" | head -n 1
+    wait_worker "$root" 10
   ) || return 1
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   printf '%s\n' "$pid"
@@ -110,7 +134,7 @@ SERVE=$(pgrep -P "$WORKER" | head -n 1)
   fail "the serving child is outside the worker's process group"
 pass "the Linux start path puts the whole worker tree in its own process group"
 
-[ "$(ppid_of "$WORKER")" = 1 ] ||
+wait_for_ppid "$WORKER" 1 10 ||
   fail "the fixture worker is not orphaned to init, so this case does not reproduce the leak"
 
 # The exact teardown shape that leaked in production: a fixture cleanup removes
