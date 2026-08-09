@@ -202,7 +202,7 @@ _fm_decision_body_key() {  # <body-text> -> key slug, or fail when the body does
   case "$after" in ''|[[:space:]]*) printf '%s' "$k" ;; *) return 1 ;; esac
 }
 _fm_decision_parse_line() {
-  local line=$1 key_var=$2 note_var=$3 prefix=${1%%:*} body_note k parsed_key= parsed_note=
+  local line=$1 key_var=$2 note_var=$3 prefix=${1%%:*} body_note k parsed_key='' parsed_note=''
   case "$prefix" in
     *\[key=*\]*)
       k=${prefix#*\[key=}
