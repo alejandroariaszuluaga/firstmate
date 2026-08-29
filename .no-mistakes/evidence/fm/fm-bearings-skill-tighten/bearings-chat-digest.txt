@@ -1,0 +1,16 @@
+## Captain’s Call
+
+- The refund fix is ready and waiting on your merge word, captain. It addresses Tuesday’s double charges, and checks are green. Say “merge it,” or inspect https://github.com/acme/pay/pull/482 first.
+- The staging login expired. Paste a replacement token into the existing secure credential prompt.
+
+## Recently Landed
+
+- The receipt wording fix merged: https://github.com/acme/pay/pull/479
+
+## Underway
+
+- A worker is validating the tax-rounding fix against production examples.
+
+## Charted Next
+
+- Mobile refund tests are queued until the refund fix merges.
