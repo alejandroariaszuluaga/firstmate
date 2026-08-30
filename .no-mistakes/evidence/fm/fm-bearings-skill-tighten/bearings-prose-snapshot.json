@@ -1,0 +1,67 @@
+{
+  "schema": "fm-bearings.v1",
+  "home": "01M1AATPCWDDBRH8ZRCQ43CE7Z/bearings-prose-fixture",
+  "generated": "2026-08-30T21:59:42Z",
+  "prs": "not_requested (run: /bearings include PRs)",
+  "in_flight": [],
+  "secondmates": [],
+  "secondmate_reconcile": [],
+  "decisions_open": [
+    {
+      "id": "refund-merge",
+      "key": "refund-merge",
+      "verb": "captain-hold",
+      "summary": "Approve refund fix: captain merge word needed for the double-charge fix reported Tuesday; …",
+      "owner": "(main)"
+    }
+  ],
+  "landed": [
+    {
+      "id": "receipt-export",
+      "what": "Receipt export shipped",
+      "artifact": "https://github.com/acme/pay/pull/477",
+      "owner": "(main)"
+    }
+  ],
+  "gates": [
+    {
+      "id": "deploy-docs",
+      "title": "Publish the runbook",
+      "blocked_by": "-",
+      "reason": "-",
+      "owner": "(main)"
+    }
+  ],
+  "reports": [],
+  "recorded_prs": [],
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "superseded or prose-deferred queued items",
+      "reveal": "--all-queued"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}
