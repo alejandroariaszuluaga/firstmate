@@ -1,0 +1,4 @@
+ok - no run + idle pane on a captain-held status reports state: parked, never unknown
+ok - no run + idle pane on a paused: status reports state: paused with its reason
+ok - no run + idle pane parses keyed status syntax
+ok - dead window ignores stale status log

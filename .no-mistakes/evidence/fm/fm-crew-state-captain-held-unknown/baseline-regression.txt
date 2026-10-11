@@ -1,0 +1,3 @@
+not ok - captain-held log before the backlog hold -> parked (missing: 'state: parked')
+--- output ---
+state: unknown · source: none · no current-state source available

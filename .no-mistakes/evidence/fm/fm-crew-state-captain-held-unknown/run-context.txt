@@ -1,0 +1,9 @@
+Target: cff8be9fda188ee035b2f38229901e1ade020145
+Baseline: b675126a66fab48df49cef0a04bbe06ddc045d33
+Surface: bin/fm-crew-state.sh CLI; no rendered UI changed.
+Real endpoint: Claude print-mode process on a private fm-lab tmux server, 120x40 grid, backend classifier returned alive.
+Inputs: disposable detached git repository, ship metadata, append-only status records, matching backlog hold, and semantic state records written through bin/fm-busy-event.sh. Busy/unknown precedence uses explicit fixture state, not observed model activity.
+No model turn or native hook-emission behavior was claimed. Interactive Claude trust prompt was left unanswered to avoid changing global tool configuration.
+Focused existing tests executed: test_no_run_idle_pane_captain_held, test_no_run_idle_pane_paused, test_no_run_idle_pane_uses_keyed_log, test_dead_window_ignores_stale_status_log.
+Baseline regression failed with state unknown; target regression passed. The initial baseline attempt lacked executable permissions; permissions were fixed before collecting final baseline evidence.
+Cleanup confirmed: disposable lab, private socket directory, temporary baseline executable, and focused/live test drivers removed from worktree. Source unchanged.

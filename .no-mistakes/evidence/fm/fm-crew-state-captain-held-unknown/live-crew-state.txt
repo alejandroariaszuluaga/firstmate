@@ -1,0 +1,22 @@
+Private endpoint: alive; grid: 120x40; current command: claude
+Before backlog hold exists
+state: parked · source: status-log · captain-held: tracked by crew-db
+Base version, same live endpoint and input:
+state: unknown · source: none · no current-state source available
+After matching backlog hold exists
+state: parked · source: status-log · captain-held: tracked by crew-db
+After continuation prose and blank lines
+state: parked · source: status-log · captain-held: tracked by crew-db
+A new decision takes precedence over the old held declaration
+state: parked · source: status-log · choose another option
+Existing external pause still reports paused
+state: paused · source: status-log · waiting for upstream release
+Existing blocker still reports blocked
+state: blocked · source: status-log · missing test input
+Unknown semantic state cannot be hidden by a held status
+state: unknown · source: pane · harness state unavailable (unknown fm-recovery)
+Authoritative busy state outranks held status
+state: working · source: pane · harness busy (fm-recovery)
+Missing endpoint cannot revive a stale held declaration
+state: unknown · source: none · backend target gone: primary:2.1.296
+Disposable lab and its private tmux server removed by EXIT cleanup.
